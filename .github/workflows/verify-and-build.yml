@@ -1,0 +1,139 @@
+name: Verify and build Mạch
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      sign_and_notarize:
+        description: Also create an Apple-signed, notarized build (requires five signing secrets)
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mach-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Logic and browser interface
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:preview
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Keep browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-failure
+          path: |
+            playwright-report/
+            work/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  macos-unsigned:
+    name: macOS packages — unsigned
+    needs: checks
+    runs-on: macos-latest
+    timeout-minutes: 35
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:mac
+      - name: Check native helper and package extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in release/mac*/Mach.app; do
+            helper="$app/Contents/Resources/helpers/mach-foreground"
+            test -x "$helper"
+            lipo -verify_arch arm64 x86_64 "$helper"
+          done
+          ditto -c -k --keepParent extension release/Mach-browser-extension.zip
+          shasum -a 256 release/*.dmg release/*.zip > release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mach-macOS-UNSIGNED
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  macos-signed:
+    name: macOS packages — Developer ID and notarization
+    if: github.event_name == 'workflow_dispatch' && inputs.sign_and_notarize == true
+    needs: checks
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Sign and notarize with repository secrets
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+        run: |
+          set -euo pipefail
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing repository secret: $name"
+              exit 1
+            fi
+          done
+          npm run dist:mac -- --config.forceCodeSigning=true --config.mac.notarize=true
+      - name: Verify signature, Gatekeeper and notarization
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in release/mac*/Mach.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign --verify --strict --verbose=2 "$app/Contents/Resources/helpers/mach-foreground"
+            spctl --assess --type execute --verbose=2 "$app"
+            xcrun stapler validate "$app"
+          done
+          ditto -c -k --keepParent extension release/Mach-browser-extension.zip
+          shasum -a 256 release/*.dmg release/*.zip > release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mach-macOS-SIGNED
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14

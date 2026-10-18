@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mạch</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><div class="brand"><span class="mark">m</span><div><strong>Mạch<span class="brand-dot">.</span></strong><small>NHẬT KÝ SỐ CỦA BẠN</small></div></div><span class="tag">CHO MAC</span></header>
+  <main>
+    <section class="status-card"><div class="status-line"><span id="status-dot" class="status-dot"></span><strong id="status-title">Đang kiểm tra kết nối…</strong></div><p id="status-detail">Kết nối với ứng dụng Mạch đang chạy trên máy này.</p><div class="local-note"><span>↳</span> Chỉ lưu trên máy của bạn</div></section>
+    <section id="pair-section"><h1>Kết nối một lần.<br>Hiểu mình mỗi ngày.</h1><p class="muted">Mở Mạch → Cài đặt → Sao chép mã ghép nối, rồi dán vào bên dưới.</p><form id="pair-form"><label for="pairing-token">MÃ GHÉP NỐI</label><input id="pairing-token" type="password" placeholder="Dán mã từ ứng dụng Mạch" autocomplete="off" spellcheck="false" required maxlength="256"><button class="primary" id="pair-button" type="submit">Ghép nối với Mạch <span>↗</span></button></form><p class="footnote">Trình duyệt sẽ xin quyền đọc tên và địa chỉ tab. Chỉ tab đang xem được tính thời gian.</p></section>
+    <section id="connected-section" hidden>
+      <div class="section-heading"><h2>Những gì được ghi lại</h2><span class="mini-label">BẠN QUYẾT ĐỊNH</span></div>
+      <div class="setting-row"><div><strong>Tab đang xem</strong><p>Tên trang, link và thời gian hoạt động</p></div><span id="tabs-state" class="pill">Đã cấp quyền</span></div>
+      <button id="grant-tabs" class="secondary" hidden>Cấp quyền đọc tab</button>
+      <div class="setting-row social-row"><div><strong>Tương tác mạng xã hội</strong><p>Ghi nhận nút bạn bấm trên bài viết</p></div><label class="switch"><input id="social-toggle" type="checkbox" aria-label="Cho phép ghi tương tác mạng xã hội"><span></span></label></div>
+      <div id="social-settings" hidden><p id="social-hint" class="hint"></p><div class="site-buttons"><button id="grant-x" class="site-button" type="button">X / Twitter <span>Bật</span></button><button id="grant-reddit" class="site-button" type="button">Reddit <span>Bật</span></button></div><p class="footnote">Chỉ ghi lượt bấm thích, bình luận, lưu và chia sẻ; không đọc nội dung bạn nhập. Lượt bấm không xác nhận thao tác đã thành công.</p></div>
+      <p class="recording-note">Bật hoặc tạm dừng ghi trong ứng dụng Mạch. Chế độ ẩn danh luôn được bỏ qua.</p>
+      <div class="footer-actions"><button id="refresh" class="text-button" type="button">↻ Kiểm tra kết nối</button><button id="unpair" class="text-button danger" type="button">Hủy ghép nối</button></div>
+    </section>
+    <p id="feedback" role="status" aria-live="polite" hidden></p>
+  </main>
+  <footer><span>MẠCH / BROWSER COMPANION</span><span>0.1</span></footer>
+  <script type="module" src="popup.mjs"></script>
+</body>
+</html>
